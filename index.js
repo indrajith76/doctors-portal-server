@@ -177,6 +177,11 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const user = req.body;
+      const query = { email: user.email };
+      const savedUser = await usersCollection.findOne(query)  
+      if(savedUser){
+        return res.send({});
+      }
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
