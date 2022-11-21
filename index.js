@@ -120,6 +120,16 @@ async function run() {
       res.send(options);
     });
 
+    // using (project()) you can get all single properties for array of object
+    app.get("/appointmentSpecialty", async (req, res) => {
+      const query = {};
+      const result = await appointmentOptionCollection
+        .find(query)
+        .project({ name: 1 })
+        .toArray();
+      res.send(result);
+    });
+
     /***
      * API Naming Convention
      * app.get('/bookings')
