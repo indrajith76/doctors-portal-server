@@ -128,7 +128,7 @@ async function run() {
               slots: {
                 $setDifference: ["$slots", "$booked"],
               },
-              price:1,
+              price: 1,
             },
           },
         ])
@@ -154,6 +154,13 @@ async function run() {
      * app.patch('/bookings/:id')
      * app.delete('/bookings/:id')
      */
+
+    app.get("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const booking = await bookingsCollection.findOne(query);
+      res.send(booking);
+    });
 
     // call verifyJWT for authorization (5)
     app.get("/bookings", verifyJWT, async (req, res) => {
@@ -261,7 +268,6 @@ async function run() {
       );
       res.send(result);
     }); */
-
 
     app.get("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
       const query = {};
