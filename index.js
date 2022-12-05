@@ -3,6 +3,8 @@ const port = process.env.PORT || 5000;
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const mg = require("nodemailer-mailgun-transport");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
@@ -19,6 +21,57 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+// Email sending functionality using nodemailer
+function sendBookingEmail(booking) {
+  const { email, treatment, appointmentDate, slot } = booking;
+
+  // it's collected from -> https://www.npmjs.com/package/nodemailer-mailgun-transport
+  const auth = {
+    auth: {
+      api_key: process.env.EMAIL_SEND_KEY,
+      domain: process.env.EMAIL_SEND_DOMAIN,
+    },
+  };
+
+  const transporter = nodemailer.createTransport(mg(auth));
+
+  /* // it's collected from -> https://www.twilio.com/blog/send-smtp-emails-node-js-sendgrid
+  let transporter = nodemailer.createTransport({
+    host: "smtp.sendgrid.net",
+    port: 587,
+    auth: {
+      user: "apikey",
+      pass: process.env.SENDGRID_API_KEY,
+    },
+  }); */
+
+  // it's collected from -> https://www.twilio.com/blog/send-smtp-emails-node-js-sendgrid
+  transporter.sendMail(
+    {
+      from: "indrajithgoswami@gmail.com", // verified sender email
+      to: email || "indrajithgoswami@gmail.com", // recipient email
+      subject: `Your appointment for ${treatment} is confirmed`, // Subject line
+      text: "Hello world!", // plain text body
+      html: `
+      <div style={{border:'1px solid', background:'seagreen'}}>
+        <h3>Your appointment is confirmed</h3>
+        <div>
+          <p>Your appointment for treatment: ${treatment}</p>
+          <p>Please visit us on ${appointmentDate} at ${slot}</p>
+        </div>
+      </div>
+      `, // html body
+    },
+    function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info);
+      }
+    }
+  );
+}
 
 // middleware for verify (step - 4)
 function verifyJWT(req, res, next) {
@@ -47,7 +100,9 @@ async function run() {
       .collection("bookings");
     const usersCollection = client.db("doctorsPortal").collection("users");
     const doctorsCollection = client.db("doctorsPortal").collection("doctors");
-    const paymentsCollection = client.db("doctorsPortal").collection("payments");
+    const paymentsCollection = client
+      .db("doctorsPortal")
+      .collection("payments");
 
     // NOTE: make sure you use verifyAdmin after verifyJWT
     const verifyAdmin = async (req, res, next) => {
@@ -195,6 +250,8 @@ async function run() {
 
       console.log(query);
       const result = await bookingsCollection.insertOne(booking);
+      // send email about appointment confirmation
+      sendBookingEmail(booking);
       res.send(result);
     });
 
@@ -220,14 +277,17 @@ async function run() {
       const payment = req.body;
       const result = await paymentsCollection.insertOne(payment);
       const id = payment.bookingId;
-      const filter = {_id : ObjectId(id)}
+      const filter = { _id: ObjectId(id) };
       const updatedDoc = {
         $set: {
-            paid: true,
-            transactionId: payment.transactionId
-        }
-      }
-      const updateResult = await bookingsCollection.updateOne(filter,updatedDoc)
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+      const updateResult = await bookingsCollection.updateOne(
+        filter,
+        updatedDoc
+      );
       res.send(result);
     });
 
